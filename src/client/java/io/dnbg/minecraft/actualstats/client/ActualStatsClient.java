@@ -1,5 +1,6 @@
 package io.dnbg.minecraft.actualstats.client;
 
+import io.dnbg.minecraft.actualstats.client.hud.StatsHudOverlay;
 import net.fabricmc.api.ClientModInitializer;
 
 /**
@@ -12,8 +13,6 @@ import net.fabricmc.api.ClientModInitializer;
 public class ActualStatsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		// Feature wiring goes here in subsequent commits. v0.1.0 intentionally
-		// ships a no-op so the project skeleton can be verified end-to-end
-		// (build → run → mod loads cleanly) before any feature code lands.
+		StatsHudOverlay.register();
 	}
 }
