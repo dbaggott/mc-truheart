@@ -8,8 +8,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
 
 /**
  * Renders the player's real (un-rounded) HP just above the heart bar,
@@ -50,33 +48,13 @@ public final class HpReadout {
 	private static final int COLOR_ABSORPTION = 0xFFFFCC55;
 
 	/**
-	 * Vanilla's regular full-heart sprite from the HUD atlas. Found via
-	 * decompiling {@code Hud.HeartType.NORMAL} which constructs the
-	 * identifier as {@code "minecraft:hud/heart/full"}. Using the same
-	 * sprite as the vanilla heart bar keeps the icon visually consistent
-	 * with what's already on screen.
+	 * Unicode BLACK HEART SUIT (U+2665), part of the vanilla Unifont
+	 * fallback. Rendered as a regular glyph in the text — sized at text
+	 * height (~8 px) instead of the 9-px sprite hearts in the player's
+	 * heart row, so it reads as a label rather than another data heart.
+	 * Picks up the text's color (red) and drop shadow automatically.
 	 */
-	private static final Identifier HEART_ICON = Identifier.fromNamespaceAndPath("minecraft", "hud/heart/full");
-	/** Vanilla heart sprite is 9×9 px. */
-	private static final int ICON_WIDTH = 9;
-	private static final int ICON_HEIGHT = 9;
-	/** Tiny gap between the icon and the text so they don't bleed together. */
-	private static final int ICON_TEXT_GAP = 2;
-	/**
-	 * 1-px black outline drawn by stamping the heart silhouette in solid
-	 * black at four cardinal offsets before drawing the real red heart on
-	 * top. Width adds to the icon's effective footprint and pushes the
-	 * text right by one extra pixel so the gap stays visually constant.
-	 */
-	private static final int OUTLINE_WIDTH = 1;
-	/** Full-opacity black, tinted onto the heart sprite for outline stamps. */
-	private static final int OUTLINE_COLOR = 0xFF000000;
-	/**
-	 * Vertical nudge for the heart so its visual centre aligns with the
-	 * text's. The 9-px heart vs 8-px font height puts the heart 0.5 px low
-	 * by default; raising it 1 px reads better than no offset.
-	 */
-	private static final int ICON_Y_NUDGE = -1;
+	private static final String HP_LABEL = "♥";
 
 	private HpReadout() {
 	}
@@ -116,39 +94,20 @@ public final class HpReadout {
 		int x = screenWidth / 2 - HOTBAR_HALF_WIDTH;
 		int y = screenHeight - HEART_BAR_BOTTOM_OFFSET - yGap;
 
-		// Label: a real heart icon so the floating numbers are self-
-		// identifying even when armor/absorption rows push them far above
-		// the vanilla heart bar. Each icon gets a 1-px black outline drawn
-		// by stampOutlinedSprite below.
-		int iconY = y + ICON_Y_NUDGE;
-		stampOutlinedSprite(extractor, HEART_ICON, x, iconY);
-		int textX = x + ICON_WIDTH + OUTLINE_WIDTH + ICON_TEXT_GAP;
-
-		String hpText = String.format("%.2f / %.0f", player.getHealth(), player.getMaxHealth());
-		extractor.text(font, hpText, textX, y, COLOR_HP, true);
+		// Label: the heart glyph inlined as part of the text, so it shares
+		// the text's color, shadow, and baseline. Sized at font height,
+		// it's visually obviously a label rather than another data heart.
+		String hpText = String.format("%s %.2f / %.0f", HP_LABEL, player.getHealth(), player.getMaxHealth());
+		extractor.text(font, hpText, x, y, COLOR_HP, true);
 
 		// When absorption is active, append a gold segment after the HP
-		// text. No icon — the heart is the label for the whole line, and
-		// the gold color carries the "this is absorption" distinction.
+		// text. The leading space in " + %.2f" provides symmetric padding
+		// on both sides of the plus sign so it reads like the " / " in the
+		// HP text.
 		if (absorption > 0) {
-			int absTextX = textX + font.width(hpText) + ICON_TEXT_GAP;
-			String absText = String.format("+ %.2f", absorption);
+			int absTextX = x + font.width(hpText);
+			String absText = String.format(" + %.2f", absorption);
 			extractor.text(font, absText, absTextX, y, COLOR_ABSORPTION, true);
 		}
-	}
-
-	/**
-	 * Renders a HUD-atlas sprite with a 1-px black outline by stamping the
-	 * sprite tinted solid black at the four cardinal +/-1 offsets, then the
-	 * untinted sprite on top. The black tint preserves the sprite's alpha,
-	 * so the outline traces the sprite's silhouette rather than a square
-	 * box around it.
-	 */
-	private static void stampOutlinedSprite(GuiGraphicsExtractor extractor, Identifier sprite, int x, int y) {
-		extractor.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x - OUTLINE_WIDTH, y,                 ICON_WIDTH, ICON_HEIGHT, OUTLINE_COLOR);
-		extractor.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x + OUTLINE_WIDTH, y,                 ICON_WIDTH, ICON_HEIGHT, OUTLINE_COLOR);
-		extractor.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x,                  y - OUTLINE_WIDTH, ICON_WIDTH, ICON_HEIGHT, OUTLINE_COLOR);
-		extractor.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x,                  y + OUTLINE_WIDTH, ICON_WIDTH, ICON_HEIGHT, OUTLINE_COLOR);
-		extractor.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x,                  y,                 ICON_WIDTH, ICON_HEIGHT);
 	}
 }
