@@ -2,7 +2,9 @@
 	"required": true,
 	"package": "io.dnbg.minecraft.actualstats.client.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"client": [],
+	"client": [
+		"FoodDataAccessor"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	},
