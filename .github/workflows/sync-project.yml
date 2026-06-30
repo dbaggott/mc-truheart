@@ -44,7 +44,11 @@ jobs:
           PAYLOAD=$(jq --argjson body "$BODY_JSON" '. + { body: $body }' \
                     .modrinth/metadata.json)
 
-          curl -sf -X PATCH \
+          # -sS (not -s) keeps the progress meter quiet but lets curl
+          # print its error line on failure. With bare -s, an HTTP 4xx
+          # (e.g. 401 if the PAT lacks Write projects) fails with a bare
+          # exit 22 and no log explanation of why.
+          curl -sSf -X PATCH \
             -H "Authorization: $MODRINTH_API_KEY" \
             -H "Content-Type: application/json" \
             "https://api.modrinth.com/v2/project/$PROJECT_ID" \
