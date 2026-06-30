@@ -1,0 +1,144 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+	id 'me.modmuss50.mod-publish-plugin' version '2.1.1'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+repositories {
+	// Loom adds Mojang + Fabric repos automatically. Add others here only
+	// when depending on mods hosted elsewhere.
+}
+
+loom {
+	// Compiles src/main and src/client as separate source sets so client-only
+	// APIs can't accidentally be referenced from shared code. Loom enforces
+	// this at compile time.
+	splitEnvironmentSourceSets()
+
+	mods {
+		"truhearts" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	// Versions live in gradle.properties so they're easy to bump in one place.
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	// Expands ${version} inside fabric.mod.json so we don't have to keep the
+	// mod metadata's version field in sync with gradle.properties by hand.
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName" }
+	}
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	repositories {
+		// Publishing targets (e.g. GitHub Packages, internal Maven) go here
+		// when we have somewhere to publish to. CI uploads the jar as a
+		// build artifact in the meantime.
+	}
+}
+
+// Publishes the remapped mod jar to Modrinth and as a GitHub Release.
+// Trigger with:
+//   MODRINTH_API_KEY=… GITHUB_TOKEN=$(gh auth token) ./gradlew publishMods
+// Or scope to one platform: publishModrinth / publishGithub.
+
+// Per-version changelog file lives at .modrinth/changelogs/${mod_version}.md
+// and the publish reads it lazily. See .modrinth/changelogs/README.md for
+// the convention. A fail-fast guard below errors at publish time if the
+// file doesn't exist for the current version.
+def changelogPath = ".modrinth/changelogs/${project.mod_version}.md"
+def changelogFile = layout.projectDirectory.file(changelogPath)
+
+publishMods {
+	// Use the standard `jar` task's output. In modern Loom the `jar` task
+	// produces the remapped production jar directly (no separate
+	// `remapJar` task); `project.tasks.jar.archiveFile` is a lazy provider
+	// resolved at execution time.
+	file = project.tasks.jar.archiveFile
+	// Custom lazy Provider rather than providers.fileContents(...).asText
+	// so we control the error path: providers.fileContents on a missing
+	// file would surface as "platform.changelog doesn't have a configured
+	// value" from inside the publish plugin, which doesn't point at the
+	// real problem. Throwing here gives a direct missing-file message.
+	changelog = provider {
+		if (!changelogFile.asFile.exists()) {
+			throw new GradleException(
+				"Changelog file ${changelogPath} not found. Create one before publishing v${project.mod_version}."
+			)
+		}
+		changelogFile.asFile.text
+	}
+	// 1.0.0 onward is stable; this is the Modrinth release-channel label.
+	// (Earlier 0.x releases used BETA — the 0.x line is being deleted from
+	// Modrinth alongside this rename, so the cut-over is clean.)
+	type = STABLE
+	modLoaders.add("fabric")
+
+	modrinth {
+		projectId = providers.gradleProperty('modrinth_project_id').getOrElse('PLACEHOLDER_SET_ME')
+		accessToken = providers.environmentVariable("MODRINTH_API_KEY")
+		minecraftVersions.add("26.2")
+		// Per-version environment metadata. The mod runs only on the client;
+		// declaring this explicitly is what Modrinth moderators flagged on the
+		// initial v1.0.0 submission (the project-level client_side / server_side
+		// in metadata.json is separate and already correct).
+		environment = CLIENT_ONLY
+		requires {
+			slug = "fabric-api"
+		}
+	}
+
+	github {
+		repository = "dbaggott/mc-truhearts"
+		accessToken = providers.environmentVariable("GITHUB_TOKEN")
+		// Pin the release/tag to the actual commit being built. On a
+		// tag-push trigger GITHUB_SHA is the tagged commit; on a
+		// workflow_dispatch with ref=some-branch it's that branch's HEAD;
+		// on a local run it's unset and we fall back to "main". Hardcoding
+		// "main" meant a dispatch from a branch would build from the
+		// branch but cut the GitHub Release against main's HEAD instead.
+		commitish = providers.environmentVariable("GITHUB_SHA").orElse("main")
+		tagName = "v${project.mod_version}"
+	}
+}
+

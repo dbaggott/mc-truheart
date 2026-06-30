@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+out/
+classes/
+
+# Fabric Loom dev-runtime
+run/
+remappedSrc/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code / Eclipse
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# macOS
+.DS_Store
+
+# mise local-only overrides (the committed mise.toml is the canonical pin)
+.mise.local.toml

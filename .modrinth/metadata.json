@@ -1,0 +1,19 @@
+{
+  "title": "TruHearts",
+  "slug": "dnbg-truhearts",
+
+  "description": "Real (un-rounded) health above your heart bar.",
+
+  "source_url": "https://github.com/dbaggott/mc-truhearts",
+  "issues_url": "https://github.com/dbaggott/mc-truhearts/issues",
+
+  "license_id": "MIT",
+
+  "categories": [
+    "utility",
+    "game-mechanics"
+  ],
+
+  "client_side": "required",
+  "server_side": "unsupported"
+}
