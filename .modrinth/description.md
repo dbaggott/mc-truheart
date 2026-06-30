@@ -20,12 +20,6 @@ That's it. One small overlay, one line of text. Half-second to learn, instant to
 - **You can see regen working in real time.** Watch HP tick up by the actual `0.5` or `1.0` increments instead of waiting for a pip to flip.
 - **PVP / hardcore players know what's about to kill them.** "One more hit" and "one more half-pip" aren't the same thing.
 
-## Compatibility
-
-- **Minecraft 26.2** (Fabric).
-- **Requires** [Fabric API](https://modrinth.com/mod/fabric-api).
-- **Client-side only** — does nothing on a dedicated server, doesn't need to be installed there, fully works on servers that don't have it. Drop the jar in your `mods/` folder and play anywhere.
-
 ## What this mod does *not* do
 
 - Doesn't change gameplay. No new mechanics, no balance changes.
