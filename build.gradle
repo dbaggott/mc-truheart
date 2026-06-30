@@ -94,7 +94,9 @@ First user-facing release: real (un-rounded) HP above the heart bar.
 - Absorption shown inline in gold (`+ 8`) when active.
 - Y-offset dynamically clears armor and absorption rows above the heart bar — no overlap with the vanilla HUD.
 """
-	type = STABLE
+	// 0.x signals still-pre-stable per the PR description's own framing;
+	// BETA matches that on the Modrinth release-channel label too.
+	type = BETA
 	modLoaders.add("fabric")
 
 	modrinth {
@@ -109,7 +111,13 @@ First user-facing release: real (un-rounded) HP above the heart bar.
 	github {
 		repository = "dbaggott/mc-true-health"
 		accessToken = providers.environmentVariable("GITHUB_TOKEN")
-		commitish = "main"
+		// Pin the release/tag to the actual commit being built. On a
+		// tag-push trigger GITHUB_SHA is the tagged commit; on a
+		// workflow_dispatch with ref=some-branch it's that branch's HEAD;
+		// on a local run it's unset and we fall back to "main". Hardcoding
+		// "main" meant a dispatch from a branch would build from the
+		// branch but cut the GitHub Release against main's HEAD instead.
+		commitish = providers.environmentVariable("GITHUB_SHA").orElse("main")
 		tagName = "v${project.mod_version}"
 	}
 }

@@ -35,6 +35,22 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # If triggered by a tag push, refuse to publish when the tag's
+      # version segment doesn't match gradle.properties' mod_version.
+      # Catches the "pushed v0.3.0 but forgot to bump mod_version, get a
+      # v0.2.0 release from a v0.3.0 trigger" failure mode the reviewer
+      # flagged. workflow_dispatch path skips this check (no tag yet).
+      - name: Verify pushed tag matches mod_version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          MOD_VERSION="$(grep '^mod_version=' gradle.properties | cut -d= -f2)"
+          if [ "$TAG_VERSION" != "$MOD_VERSION" ]; then
+            echo "::error::Pushed tag v$TAG_VERSION does not match gradle.properties mod_version $MOD_VERSION. Bump mod_version and tag again, or push the matching tag."
+            exit 1
+          fi
+          echo "Tag and mod_version both v$MOD_VERSION ✓"
+
       - name: Build
         run: ./gradlew build
 
