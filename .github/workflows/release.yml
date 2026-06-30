@@ -1,26 +1,73 @@
 name: release
 
-# Two ways to fire:
-#  - push a tag matching v*  (e.g. `git tag -a v0.2.0 -m "" && git push --tags`)
-#  - manual run from Actions tab → "release" → "Run workflow"
+# Two ways to publish:
+#
+#   1. Auto: bump mod_version in gradle.properties on main → this fires
+#      with the gate enforcing "version actually changed + matching tag
+#      doesn't already exist", then builds and publishes.
+#
+#   2. Manual: Actions tab → "release" → "Run workflow" → pick the ref
+#      from the dropdown. Gate is bypassed for dispatch so this also
+#      serves as a retry path if publish failed previously.
+#
+# Why one workflow not two: an earlier attempt split this into
+# auto-tag.yml (creates the tag) + release.yml (publishes on tag push)
+# but GitHub Actions deliberately does not fire workflows from events
+# created with the default GITHUB_TOKEN — the tag-push trigger never
+# ran. Folding both into one job dodges that recursion guard.
 on:
   push:
-    tags:
-      - 'v*'
-  # Manual dispatch picks the branch/tag from the Actions "Run workflow"
-  # dropdown — github.ref tracks that, and checkout + GITHUB_SHA stay in
-  # lockstep. No `inputs:` here so the dropdown ref is the single source
-  # of truth (a free-text inputs.ref field would reintroduce the same
-  # divergence class the previous commit's commitish change closed).
+    branches: [main]
+    paths: ['gradle.properties']
   workflow_dispatch:
 
-# contents:write is needed for the github destination in publishMods —
-# it creates the v<version> tag (if not already present) and the Release.
 permissions:
-  contents: write
+  contents: write   # for the github destination in publishMods
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2     # HEAD~1 needed for the version diff
+          fetch-tags: true   # for the existing-tag check
+
+      - id: check
+        name: Decide whether to publish
+        run: |
+          set -euo pipefail
+          CUR=$(grep '^mod_version=' gradle.properties | cut -d= -f2)
+          echo "current mod_version: $CUR"
+          echo "version=$CUR" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "manual dispatch — skipping gate (publish for current mod_version)."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PREV=$(git show HEAD~1:gradle.properties | grep '^mod_version=' | cut -d= -f2 || echo "")
+          echo "previous mod_version: $PREV"
+          if [ "$PREV" = "$CUR" ]; then
+            echo "mod_version unchanged — non-version edit to gradle.properties; nothing to publish."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git rev-parse "v$CUR" >/dev/null 2>&1; then
+            echo "tag v$CUR already exists — refusing to clobber. Delete the tag manually if you mean to re-release."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "version $CUR is new — proceeding to publish."
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
   publish:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,25 +81,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # If triggered by a tag push, refuse to publish when the tag's
-      # version segment doesn't match gradle.properties' mod_version.
-      # Catches the "pushed v0.3.0 but forgot to bump mod_version, get a
-      # v0.2.0 release from a v0.3.0 trigger" failure mode the reviewer
-      # flagged. workflow_dispatch path skips this check (no tag yet).
-      - name: Verify pushed tag matches mod_version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          MOD_VERSION="$(grep '^mod_version=' gradle.properties | cut -d= -f2)"
-          if [ "$TAG_VERSION" != "$MOD_VERSION" ]; then
-            echo "::error::Pushed tag v$TAG_VERSION does not match gradle.properties mod_version $MOD_VERSION. Bump mod_version and tag again, or push the matching tag."
-            exit 1
-          fi
-          echo "Tag and mod_version both v$MOD_VERSION ✓"
-
       - name: Build
         run: ./gradlew build
 
+      # The mod-publish-plugin's github destination creates the
+      # v<mod_version> tag at commitish (= GITHUB_SHA, set in
+      # build.gradle) and attaches the jar. modrinth destination
+      # uploads the same jar as a new version row.
       - name: Publish to Modrinth and GitHub Releases
         run: ./gradlew publishMods
         env:
