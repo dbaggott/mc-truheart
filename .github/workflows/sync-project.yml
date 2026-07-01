@@ -52,9 +52,17 @@ jobs:
                     .modrinth/metadata.json)
 
           # Read the current server state so we can diff.
-          CURRENT=$(curl -sS --fail-with-body \
+          RAW_CURRENT=$(curl -sS --fail-with-body \
             -H "Authorization: $MODRINTH_API_KEY" \
             "https://api.modrinth.com/v2/project/$PROJECT_ID")
+
+          # Modrinth's GET returns `license` as an object ({id,name,url})
+          # while PATCH accepts `license_id` as a scalar. Reshape the GET
+          # response so its key matches the shape we're PATCHing with —
+          # otherwise `$cur["license_id"]` is always null, and the diff
+          # would never elide the license field even when it's unchanged
+          # (making the {}-skip branch unreachable in the truly-no-op case).
+          CURRENT=$(jq '. + { license_id: (.license.id // null) }' <<< "$RAW_CURRENT")
 
           # Send only the fields that differ from the current server value.
           # Modrinth 400s on some no-op PATCHes — notably a slug PATCH to
@@ -65,7 +73,8 @@ jobs:
           # even when the value is unchanged (their validator seems to
           # check "slug matches any project's ID" without excluding self).
           # Diff-then-PATCH sidesteps that and also makes the workflow
-          # idempotent — a re-run with no repo changes becomes a no-op.
+          # genuinely idempotent — a re-run with no repo changes exits
+          # at the {}-skip branch below without touching the API.
           PAYLOAD=$(jq -n --argjson cur "$CURRENT" --argjson des "$DESIRED" '
             $des
             | with_entries(select(.value != ($cur[.key])))
