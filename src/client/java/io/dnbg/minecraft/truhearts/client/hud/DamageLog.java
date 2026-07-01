@@ -50,6 +50,14 @@ public final class DamageLog {
 	private static final int COLOR_AMOUNT = 0x00FF2A2A;
 	/** Soft white for the source label; distinct from the amount without competing. */
 	private static final int COLOR_LABEL = 0x00E0E0E0;
+	/**
+	 * Death-marker text color — dim warm gray. Distinct from active
+	 * damage entries so the "you actually died here" line reads as
+	 * different from just another hit.
+	 */
+	private static final int COLOR_DEATH = 0x00B0A0A0;
+	/** Prefix glyph on the death-marker line. Unicode SKULL AND CROSSBONES (U+2620). */
+	private static final String DEATH_GLYPH = "☠";
 
 	private static final Deque<Entry> entries = new ArrayDeque<>();
 
@@ -69,6 +77,13 @@ public final class DamageLog {
 	 * for the trade-off.
 	 */
 	private static DamageSource pendingSource;
+
+	/**
+	 * Whether the player was alive at the end of the previous tick. Used to
+	 * detect the moment of death (alive → not alive transition) and drop a
+	 * {@link Entry#isDeath() death} marker into the log.
+	 */
+	private static boolean wasAlive = true;
 
 	private DamageLog() {
 	}
@@ -119,19 +134,34 @@ public final class DamageLog {
 	public static void onClientTickEnd(LocalPlayer player) {
 		float currentTotal = totalPool(player);
 		float amount = Float.isNaN(baselineTotal) ? 0f : baselineTotal - currentTotal;
-		if (amount > 0.0001f) {
-			DamageSource source = pendingSource != null
-				? pendingSource
-				: player.getLastDamageSource();
-			if (source != null) {
-				entries.addFirst(new Entry(amount, labelFor(source), System.nanoTime()));
-				while (entries.size() > BUFFER_SIZE) {
-					entries.removeLast();
-				}
-			}
+		DamageSource source = pendingSource != null
+			? pendingSource
+			: player.getLastDamageSource();
+
+		if (amount > 0.0001f && source != null) {
+			addEntry(new Entry(amount, labelFor(source), System.nanoTime(), false));
 		}
+
+		// Death detection — alive → dead transition on this tick. The killing
+		// damage entry was just added above; the death marker follows it so
+		// the "you died here" line is unmistakably distinct from any hit that
+		// happened to bring you low.
+		boolean isAlive = player.getHealth() > 0f;
+		if (wasAlive && !isAlive) {
+			String label = source != null ? "Died to " + labelFor(source) : "Died";
+			addEntry(new Entry(0f, label, System.nanoTime(), true));
+		}
+		wasAlive = isAlive;
+
 		pendingSource = null;
 		baselineTotal = currentTotal;
+	}
+
+	private static void addEntry(Entry e) {
+		entries.addFirst(e);
+		while (entries.size() > BUFFER_SIZE) {
+			entries.removeLast();
+		}
 	}
 
 	/** Cleared on world exit / disconnect via {@code TruHeartsClient}. */
@@ -139,6 +169,7 @@ public final class DamageLog {
 		entries.clear();
 		baselineTotal = Float.NaN;
 		pendingSource = null;
+		wasAlive = true;
 	}
 
 	private static float totalPool(LocalPlayer player) {
@@ -186,13 +217,20 @@ public final class DamageLog {
 		for (Entry e : entries) {
 			int y = hpReadoutBaselineY - ROW_HEIGHT * (i + 1);
 			int alpha = alphaForAge(now - e.timestampNanos);
-			int amountColor = (alpha << 24) | COLOR_AMOUNT;
-			int labelColor = (alpha << 24) | COLOR_LABEL;
 
-			String amountText = "- " + fmtAmount(e.amount);
-			extractor.text(font, amountText, x, y, amountColor, true);
-			int amountWidth = font.width(amountText);
-			extractor.text(font, "  " + e.label, x + amountWidth, y, labelColor, true);
+			if (e.isDeath) {
+				// Death marker: no amount, skull glyph prefix, dim warm gray
+				// so it reads as visually different from a hit.
+				int deathColor = (alpha << 24) | COLOR_DEATH;
+				extractor.text(font, DEATH_GLYPH + " " + e.label, x, y, deathColor, true);
+			} else {
+				int amountColor = (alpha << 24) | COLOR_AMOUNT;
+				int labelColor = (alpha << 24) | COLOR_LABEL;
+				String amountText = "- " + fmtAmount(e.amount);
+				extractor.text(font, amountText, x, y, amountColor, true);
+				int amountWidth = font.width(amountText);
+				extractor.text(font, "  " + e.label, x + amountWidth, y, labelColor, true);
+			}
 			i++;
 		}
 	}
@@ -257,6 +295,15 @@ public final class DamageLog {
 		return Character.toUpperCase(s.charAt(0)) + s.substring(1);
 	}
 
-	private record Entry(float amount, String label, long timestampNanos) {
+	/**
+	 * A log line. Two shapes:
+	 * <ul>
+	 * <li>Damage entry — {@code isDeath == false}, {@code amount > 0},
+	 *     rendered as {@code "- <amount>  <label>"}.
+	 * <li>Death marker — {@code isDeath == true}, {@code amount} unused,
+	 *     rendered as {@code "☠ <label>"} in the death color.
+	 * </ul>
+	 */
+	private record Entry(float amount, String label, long timestampNanos, boolean isDeath) {
 	}
 }

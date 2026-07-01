@@ -21,6 +21,10 @@ A new overlay: the last few hits you took.
   cause (`Fell`, `Fire`, `Lava`, `Drowned`, `Explosion`, `Void`, …).
   Newest at the bottom; older entries stack upward and fade over the
   trailing ~2 s of a 10 s lifetime. Up to 5 entries on screen at once.
+- **Death marker.** When the hit that killed you lands, a distinct
+  `☠ Died to <source>` line drops into the stream right after the
+  killing entry, rendered in a dim warm gray so it stands out from a
+  regular hit.
 - Amount is measured as **health + absorption delta**, so hits eaten by
   absorption count at what the player actually felt.
 - **Two-level toggle model.** The existing keybind is now the *master*
