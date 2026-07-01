@@ -24,14 +24,17 @@ A small client-side Minecraft mod (Fabric) that surfaces the *real* numerical he
 
 | Tooling | Version |
 |---|---|
-| Minecraft | 26.2 ("Chaos Cubed") |
+| Minecraft (runtime) | 26.1, 26.1.1, 26.1.2, or 26.2 ("Chaos Cubed") — one jar for all |
+| Minecraft (build target) | 26.2 by default; the same source also compiles clean against 26.1.2 (verified in CI) |
 | Fabric Loader | 0.19.3 |
-| Fabric API | 0.153.0+26.2 |
+| Fabric API | 0.153.0+26.2 at build time; players use whichever release matches their MC |
 | Fabric Loom | 1.17-SNAPSHOT |
 | JDK | Temurin 25 (pinned via `mise.toml`) |
 | Gradle | 9.x via wrapper |
 
 The mod is client-only (`"environment": "client"` in `fabric.mod.json`) — no install on dedicated servers.
+
+Cross-version compat is possible because the mod uses only APIs that are shape-stable between 26.1 and 26.2, and renders the toggle toast through its own HUD element (see `ToggleToast`) rather than calling `setOverlayMessage` — that method's location differs between the two MC versions.
 
 ## Build
 

@@ -7,6 +7,21 @@ on:
 
 jobs:
   build:
+    # Matrix build: the "publish" build is the 26.2 target from gradle.properties;
+    # the "compat" build swaps the MC version to the earliest supported line
+    # (26.1.2) to lock in the promise that a single jar covers both minor
+    # versions. If a future edit uses a 26.2-only API by accident, the compat
+    # job fails on PR before the release surface can advertise 26.1 support.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mc26.2
+            mc: '26.2'
+            fabric_api: '0.153.0+26.2'
+          - name: mc26.1.2
+            mc: '26.1.2'
+            fabric_api: '0.153.0+26.1.2'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,9 +35,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - run: ./gradlew build --stacktrace
+      - run: |
+          ./gradlew build --stacktrace \
+            -Pminecraft_version=${{ matrix.mc }} \
+            -Pfabric_api_version=${{ matrix.fabric_api }}
 
-      - uses: actions/upload-artifact@v7
+      # Upload the 26.2 (default-target) jar as the artifact used elsewhere.
+      # The 26.1.2 build is a compat gate; its jar isn't published.
+      - if: matrix.name == 'mc26.2'
+        uses: actions/upload-artifact@v7
         with:
           name: truhearts-jar
           path: build/libs/*.jar

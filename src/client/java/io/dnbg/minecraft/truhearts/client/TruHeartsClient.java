@@ -2,6 +2,7 @@ package io.dnbg.minecraft.truhearts.client;
 
 import io.dnbg.minecraft.truhearts.client.config.TruHeartsConfig;
 import io.dnbg.minecraft.truhearts.client.hud.HpReadout;
+import io.dnbg.minecraft.truhearts.client.hud.ToggleToast;
 import io.dnbg.minecraft.truhearts.client.input.KeyBindings;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -20,6 +21,7 @@ public class TruHeartsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		HpReadout.register();
+		ToggleToast.register();
 		KeyBindings.register();
 		ClientTickEvents.END_CLIENT_TICK.register(TruHeartsClient::pollToggle);
 	}
@@ -27,8 +29,15 @@ public class TruHeartsClient implements ClientModInitializer {
 	/**
 	 * Drain any pending toggle-key clicks (there can be more than one per
 	 * tick under lag) and flip {@link TruHeartsConfig#enabled} for each,
-	 * persisting after every flip and echoing to the action bar so the
-	 * player sees the state change.
+	 * persisting after every flip and echoing to our own {@link ToggleToast}
+	 * so the player sees the state change.
+	 *
+	 * <p>We render our own toast rather than calling vanilla's
+	 * {@code setOverlayMessage} because that method's location differs
+	 * between MC 26.1 ({@code Gui.setOverlayMessage}) and 26.2
+	 * ({@code Gui.hud.setOverlayMessage}). Routing through
+	 * {@link ToggleToast} keeps this code path source-compatible with
+	 * both MC lines from a single jar.
 	 */
 	private static void pollToggle(Minecraft client) {
 		while (KeyBindings.TOGGLE.consumeClick()) {
@@ -36,9 +45,7 @@ public class TruHeartsClient implements ClientModInitializer {
 			cfg.enabled = !cfg.enabled;
 			cfg.save();
 			String msgKey = "truhearts.toggle." + (cfg.enabled ? "on" : "off");
-			// setOverlayMessage lives on Gui.hud (public field) in 26.2;
-			// the method was hoisted off of Gui itself into the Hud subobject.
-			client.gui.hud.setOverlayMessage(Component.translatable(msgKey), false);
+			ToggleToast.show(Component.translatable(msgKey));
 		}
 	}
 }
