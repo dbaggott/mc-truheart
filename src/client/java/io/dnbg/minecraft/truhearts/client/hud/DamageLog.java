@@ -330,7 +330,7 @@ public final class DamageLog {
 			case "fall" -> "Fall";
 			case "inFire", "onFire" -> "Fire";
 			case "lava" -> "Lava";
-			case "drown" -> "Drowned";
+			case "drown" -> "Drowning";
 			case "starve" -> "Starved";
 			case "cactus" -> "Cactus";
 			case "hotFloor" -> "Magma block";

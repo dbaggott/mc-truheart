@@ -18,7 +18,7 @@ A new overlay: the last few hits you took.
 - **Recent-damage log** stacks above the HP readout. Each entry shows the
   amount (as an un-rounded value like the HP readout) and a short label
   for the source — mob or player name for attacks, or the environmental
-  cause (`Fall`, `Fire`, `Lava`, `Drowned`, `Explosion`, `Void`, …).
+  cause (`Fall`, `Fire`, `Lava`, `Drowning`, `Explosion`, `Void`, …).
   Newest at the bottom; older entries stack upward and fade over the
   trailing ~2 s of a 10 s lifetime. Up to 5 entries on screen at once.
 - **Death marker.** When the hit that killed you lands, a distinct
