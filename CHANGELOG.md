@@ -18,10 +18,11 @@ Now runs on Minecraft 26.1 as well as 26.2 — one jar covers both.
 - Adds support for Minecraft **26.1, 26.1.1, and 26.1.2**. The jar is
   source-compatible with both 26.1 and 26.2 lines.
 - The "TruHearts: on/off" toggle message is now rendered by TruHearts
-  directly (small HUD element with a fade-out), rather than calling
-  vanilla's `setOverlayMessage` — that vanilla method's location differs
-  between 26.1 (`Gui`) and 26.2 (`Gui.hud`), so routing through our own
-  element is what lets a single jar cover both.
+  directly (small HUD element with a fade-out, ~2.5 s total — a touch
+  shorter than the ~3 s vanilla used), rather than calling vanilla's
+  `setOverlayMessage`. That vanilla method's location differs between
+  26.1 (`Gui`) and 26.2 (`Gui.hud`), so routing through our own element
+  is what lets a single jar cover both.
 
 Requires Fabric Loader 0.19.3+ and Fabric API matching your MC version.
 
