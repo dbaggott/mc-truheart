@@ -327,7 +327,7 @@ public final class DamageLog {
 			return entity.getDisplayName().getString();
 		}
 		return switch (source.getMsgId()) {
-			case "fall" -> "Fell";
+			case "fall" -> "Fall";
 			case "inFire", "onFire" -> "Fire";
 			case "lava" -> "Lava";
 			case "drown" -> "Drowned";
