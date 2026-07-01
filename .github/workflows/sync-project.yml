@@ -38,17 +38,53 @@ jobs:
           fi
           echo "id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Sync metadata (PATCH project body + fields)
+      - name: Sync metadata (PATCH only fields that differ)
         env:
           MODRINTH_API_KEY: ${{ secrets.MODRINTH_API_KEY }}
           PROJECT_ID: ${{ steps.project.outputs.id }}
         run: |
           set -euo pipefail
           # JSON-encode the markdown body and splice it into metadata.json
-          # under the `body` key. The result is the literal PATCH payload.
+          # under the `body` key — that's the shape Modrinth's PATCH endpoint
+          # expects.
           BODY_JSON=$(jq -Rs . < .modrinth/description.md)
-          PAYLOAD=$(jq --argjson body "$BODY_JSON" '. + { body: $body }' \
+          DESIRED=$(jq --argjson body "$BODY_JSON" '. + { body: $body }' \
                     .modrinth/metadata.json)
+
+          # Read the current server state so we can diff.
+          RAW_CURRENT=$(curl -sS --fail-with-body \
+            -H "Authorization: $MODRINTH_API_KEY" \
+            "https://api.modrinth.com/v2/project/$PROJECT_ID")
+
+          # Modrinth's GET returns `license` as an object ({id,name,url})
+          # while PATCH accepts `license_id` as a scalar. Reshape the GET
+          # response so its key matches the shape we're PATCHing with —
+          # otherwise `$cur["license_id"]` is always null, and the diff
+          # would never elide the license field even when it's unchanged
+          # (making the {}-skip branch unreachable in the truly-no-op case).
+          CURRENT=$(jq '. + { license_id: (.license.id // null) }' <<< "$RAW_CURRENT")
+
+          # Send only the fields that differ from the current server value.
+          # Modrinth 400s on some no-op PATCHes — notably a slug PATCH to
+          # the current slug returns
+          #   {"error":"invalid_input",
+          #    "description":"Invalid input: Slug collides with other
+          #                   project's id!"}
+          # even when the value is unchanged (their validator seems to
+          # check "slug matches any project's ID" without excluding self).
+          # Diff-then-PATCH sidesteps that and also makes the workflow
+          # genuinely idempotent — a re-run with no repo changes exits
+          # at the {}-skip branch below without touching the API.
+          PAYLOAD=$(jq -n --argjson cur "$CURRENT" --argjson des "$DESIRED" '
+            $des
+            | with_entries(select(.value != ($cur[.key])))
+          ')
+          if [ "$PAYLOAD" = "{}" ]; then
+            echo "no field differs from current state — skipping PATCH."
+            exit 0
+          fi
+          echo "fields to PATCH: $(echo "$PAYLOAD" | jq -r 'keys | join(", ")')"
+
           # --fail-with-body: error exit on HTTP 4xx/5xx AND print Modrinth's
           # response body so the actual error message shows in the log
           # (vs `-f`, which would discard the body and leave a bare exit 22).
