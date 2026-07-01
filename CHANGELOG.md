@@ -11,6 +11,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 > in reverse-chronological order for human browsing. When shipping a new release,
 > add the version's file in `.modrinth/changelogs/` *and* prepend a new section here.
 
+## [1.2.0] — 2026-07-01
+
+Now runs on Minecraft 26.1 as well as 26.2 — one jar covers both.
+
+- Adds support for Minecraft **26.1, 26.1.1, and 26.1.2**. The jar is
+  source-compatible with both 26.1 and 26.2 lines.
+- The "TruHearts: on/off" toggle message is now rendered by TruHearts
+  directly (a brief 0.75 s linear fade), rather than calling vanilla's
+  `setOverlayMessage`. That vanilla method's location differs between
+  26.1 (`Gui`) and 26.2 (`Gui.hud`), so routing through our own element
+  is what lets a single jar cover both.
+
+Requires Fabric Loader 0.19.3+ and Fabric API matching your MC version.
+
 ## [1.1.0] — 2026-07-01
 
 Toggle the HP readout on/off in-game.
@@ -35,5 +49,6 @@ First stable release.
 Minecraft 26.2 with Fabric Loader 0.19.3+. Client-only — does nothing on a dedicated
 server and isn't required there.
 
+[1.2.0]: https://github.com/dbaggott/mc-truhearts/releases/tag/v1.2.0
 [1.1.0]: https://github.com/dbaggott/mc-truhearts/releases/tag/v1.1.0
 [1.0.0]: https://github.com/dbaggott/mc-truhearts/releases/tag/v1.0.0

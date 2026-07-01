@@ -14,6 +14,7 @@ That's it. One small overlay, one line of text. Half-second to learn, instant to
 - **Absorption appears inline in gold** when active — `♥ 18.5 / 20 + 8` after an enchanted golden apple, or whatever you've topped up with. Disappears when your absorption runs out.
 - **The overlay sits in the right place at all times.** Wearing armor? It shifts up a row to clear the armor icons. Got absorption hearts? Another row up. Both? Both rows. No collision with the vanilla HUD, ever.
 - **Toggle it on or off in-game.** A keybind under **Controls → TruHearts → Toggle HP overlay** hides the readout when you want the vanilla view back — for a screenshot, for a purist run, or just because. Unbound by default; assign it to whatever key you like. Preference sticks between sessions.
+- **Works on Minecraft 26.1 and 26.2.** One download covers both minor lines. A 26.1 install and a 26.2 install run the same jar.
 
 ## Why you might want this
 

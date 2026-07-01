@@ -117,6 +117,14 @@ publishMods {
 	modrinth {
 		projectId = providers.gradleProperty('modrinth_project_id').getOrElse('PLACEHOLDER_SET_ME')
 		accessToken = providers.environmentVariable("MODRINTH_API_KEY")
+		// Advertise every MC patch the jar actually runs on. See the
+		// "Multi-MC-version" section of TruHeartsClient's javadoc: routing
+		// the toggle toast through our own HUD element (rather than vanilla's
+		// setOverlayMessage, whose location differs between 26.1 and 26.2)
+		// keeps a single jar source-compatible with both minor lines.
+		minecraftVersions.add("26.1")
+		minecraftVersions.add("26.1.1")
+		minecraftVersions.add("26.1.2")
 		minecraftVersions.add("26.2")
 		// Per-version environment metadata. The mod runs only on the client;
 		// declaring this explicitly is what Modrinth moderators flagged on the
