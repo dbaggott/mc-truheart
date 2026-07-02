@@ -326,25 +326,25 @@ public final class DamageLog {
 		if (entity != null) {
 			return entity.getDisplayName().getString();
 		}
+		// Cases below are only for msgIds where we want a label that DIFFERS
+		// from capitalize(msgId) — a rename, a merge of aliases, or a fix
+		// for underscore/camelCase noise. Any msgId not listed here (and any
+		// new one Mojang adds) falls through to capitalize(msgId), which is
+		// the right default for simple single-word ids like "sting" or "hurt".
 		return switch (source.getMsgId()) {
-			case "fall" -> "Fall";
 			case "inFire", "onFire" -> "Fire";
-			case "lava" -> "Lava";
 			case "drown" -> "Drowning";
 			case "starve" -> "Starved";
-			case "cactus" -> "Cactus";
 			case "hotFloor" -> "Magma block";
 			case "cramming" -> "Entity cramming";
 			case "inWall" -> "Suffocation";
 			case "explosion", "explosion.player" -> "Explosion";
 			case "magic", "indirectMagic" -> "Magic";
-			case "wither" -> "Wither";
 			case "lightningBolt" -> "Lightning";
 			case "freeze" -> "Froze";
 			case "sonic_boom" -> "Sonic boom";
 			case "fallingBlock", "anvil", "fallingStalactite" -> "Falling block";
 			case "sweetBerryBush" -> "Berry bush";
-			case "stalagmite" -> "Stalagmite";
 			case "outOfWorld" -> "Void";
 			default -> capitalize(source.getMsgId());
 		};
