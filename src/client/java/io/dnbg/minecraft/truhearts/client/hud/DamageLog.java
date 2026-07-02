@@ -82,6 +82,15 @@ public final class DamageLog {
 	private static float baselineTotal = Float.NaN;
 
 	/**
+	 * Baseline HP-only (no absorption) captured at the end of the last
+	 * client tick, used to compute heal amount. Split from
+	 * {@link #baselineTotal} so absorption gains (golden apple, absorption
+	 * potion) don't count as heals — they show up in the vanilla absorption
+	 * HUD, and the regen ticks that follow will log any actual HP recovery.
+	 */
+	private static float baselineHP = Float.NaN;
+
+	/**
 	 * Damage source captured by the mixin during packet processing,
 	 * pending realization at end-of-tick when HP has caught up. Overwritten
 	 * on repeat damage in the same tick — see {@link #onDamageEvent(DamageSource)}
@@ -144,34 +153,49 @@ public final class DamageLog {
 	 * get charged to the next event's delta.
 	 */
 	public static void onClientTickEnd(LocalPlayer player) {
+		float currentHP = player.getHealth();
 		float currentTotal = totalPool(player);
-		float delta = Float.isNaN(baselineTotal) ? 0f : baselineTotal - currentTotal;
-		DamageSource source = pendingSource != null
-			? pendingSource
-			: player.getLastDamageSource();
-		boolean isAlive = player.getHealth() > 0f;
-
+		float damageDelta = Float.isNaN(baselineTotal) ? 0f : baselineTotal - currentTotal;
+		float healDelta = Float.isNaN(baselineHP) ? 0f : currentHP - baselineHP;
+		boolean isAlive = currentHP > 0f;
 		// The tick after death when HP snaps from 0 back to full is a respawn,
 		// not a heal — suppress it so the log doesn't get a spurious "+ 20 Healed".
 		boolean isRespawn = !wasAlive && isAlive;
 
-		if (delta > 0.0001f && source != null) {
-			addEntry(new Entry(delta, labelFor(source), System.nanoTime(), Type.DAMAGE));
-		} else if (delta < -0.0001f && !isRespawn) {
-			addOrCoalesceHeal(-delta, healLabelFor(player));
+		// DAMAGE: require pendingSource. Without it, a pool drop is one of
+		// {milk-bucket clearing absorption, Absorption / Health Boost effect
+		// expiring, /effect clear} — none of which are damage. Attributing
+		// the drop to player.getLastDamageSource() would surface a spurious
+		// entry with a stale source label. Erring on the side of a missed
+		// entry beats a wrong one.
+		if (damageDelta > 0.0001f && pendingSource != null) {
+			addEntry(new Entry(damageDelta, labelFor(pendingSource), System.nanoTime(), Type.DAMAGE));
+		} else if (healDelta > 0.0001f && !isRespawn) {
+			// HEAL uses HP-only delta, not totalPool. So absorption gains
+			// (golden apple's initial +N absorption) don't count as heals;
+			// the regen ticks that follow, if the player was actually
+			// injured, will log the real HP recovery.
+			addOrCoalesceHeal(healDelta, healLabelFor(player));
 		}
 
 		// Death detection — alive → dead transition on this tick. The killing
 		// damage entry was just added above; the death marker follows it so
 		// the "you died here" line is unmistakably distinct from any hit that
-		// happened to bring you low.
+		// happened to bring you low. For attribution here we do keep the
+		// getLastDamageSource() fallback — an ambient-death case (/kill,
+		// void-below-void) is rare and "Died to <stale label>" is more
+		// useful than "Died".
 		if (wasAlive && !isAlive) {
-			String label = source != null ? "Died to " + labelFor(source) : "Died";
+			DamageSource killer = pendingSource != null
+				? pendingSource
+				: player.getLastDamageSource();
+			String label = killer != null ? "Died to " + labelFor(killer) : "Died";
 			addEntry(new Entry(0f, label, System.nanoTime(), Type.DEATH));
 		}
 		wasAlive = isAlive;
 
 		pendingSource = null;
+		baselineHP = currentHP;
 		baselineTotal = currentTotal;
 	}
 
@@ -222,6 +246,7 @@ public final class DamageLog {
 	/** Cleared on world exit / disconnect via {@code TruHeartsClient}. */
 	public static void reset() {
 		entries.clear();
+		baselineHP = Float.NaN;
 		baselineTotal = Float.NaN;
 		pendingSource = null;
 		wasAlive = true;
@@ -347,6 +372,8 @@ public final class DamageLog {
 			case "sweetBerryBush" -> "Berry bush";
 			case "flyIntoWall" -> "Kinetic energy";
 			case "dryOut" -> "Dry drowning";
+			case "genericKill" -> "/kill";
+			case "outsideBorder" -> "Leaving the world's confines";
 			case "outOfWorld" -> "Void";
 			default -> capitalize(source.getMsgId());
 		};
